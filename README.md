@@ -14,9 +14,21 @@ Python 3 with urllib. Should be installed by default, if not use your package ma
 
 ## Docker
 ### Enviroment Variables
-API_KEY API Key from Dreamhost, to obtain one please go to: https://panel.dreamhost.com/?tree=home.api
-DOMAIN Desired domain used for your ddns
-UPDATE_FREQUENCY Desired update frequency in minutes. This is set to 10 minutes by default.
+#### API_KEY
+API Key from Dreamhost, to obtain one please go to: https://panel.dreamhost.com/?tree=home.api
+#### DOMAIN 
+Desired domain used for your ddns
+#### UPDATE_FREQUENCY
+Desired update frequency in minutes. This is set to 10 minutes by default.
+
+### Running Image
+```bash
+docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' --name dreampy dreampy
+```
+If you want to override update frequency:
+```bash
+docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' -e UPDATE_FREQUENCY='15' --name dreampy dreampy
+```
 
 ## Usage
 
