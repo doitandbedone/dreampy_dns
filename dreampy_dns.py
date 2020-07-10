@@ -8,9 +8,12 @@
 
     """
 
-#Python version check
+# Python version check
 import sys
 import syslog
+import os
+import sched
+import time
 if sys.version_info.major < 3:
     msg = 'Python 3 required. I refuse to run!'
     syslog.syslog(syslog.LOG_ERR, msg)
@@ -19,19 +22,21 @@ if sys.version_info.major < 3:
 import urllib.request as urlr
 import uuid
 import logging
-#### We only need API Key and domain to be updated.
-#### Domain can be the root or a subdomain.
+# We only need API Key and domain to be updated.
+# Domain can be the root or a subdomain.
 #### example.com or sub.exmple.com
 ####
 
-API_Key = ""
-domain = ""
-#### Set the logging level.
-logging.basicConfig(level=logging.ERROR)
+default_update_freq = 10  # 10 mins
+update_freq = os.getenv('UPDATE_FREQUENCY')
+API_Key = os.getenv('API_KEY')
+domain = os.getenv('DOMAIN')
+# Set the logging level.
+logging.basicConfig(level=logging.INFO)
 # Set this to 1 or True or whatever if you want to update IPv6 record.
-CHECKIPV6=0
+CHECKIPV6 = 0
 
-### START
+# START
 
 API_url = "https://api.dreamhost.com"
 IP_Addr = ""
@@ -53,12 +58,14 @@ def get_dns_ip(records, protocol='ip'):
         rec_type = "A"
     for line in records:
         values = line.expandtabs().split()
-        if values[2]==domain and values[3]==rec_type:
-            logging.info('Current %s record for %s is: %s', protocol, domain,  values[4])
+        if values[2] == domain and values[3] == rec_type:
+            logging.info('Current %s record for %s is: %s',
+                         protocol, domain,  values[4])
             return values[4]
         logging.warning('No %s record found for %s', protocol, domain)
     else:
         return "NO_RECORD"
+
 
 def get_dns_records():
     response = speak_to_DH("dns-list_records")
@@ -66,8 +73,10 @@ def get_dns_records():
     for line in response.splitlines():
         if domain in line:
             relevant_records.append(line)
-    logging.debug('All relevant DNS Records for %s: \n %s', domain, relevant_records)
+    logging.info('All relevant DNS Records for %s: \n %s',
+                  domain, relevant_records)
     return relevant_records
+
 
 def del_dns_record(protocol='ip'):
     global DNS_IPV6
@@ -83,11 +92,15 @@ def del_dns_record(protocol='ip'):
     if record == '':
         logging.error("Can't delete record, value passed is empty")
         sys.exit("Weird")
-    command = "dns-remove_record&record=" + domain + "&type=" + rec_type + "&value=" + record
+    command = "dns-remove_record&record=" + domain + \
+        "&type=" + rec_type + "&value=" + record
     response = speak_to_DH(command)
     if 'error' in response:
-        logging.error('Error while deleting %s record: \n %s', protocol, response)
-    logging.debug('Tried to del %s record and here is what Dreamhost responded: \n %s', protocol, response)
+        logging.error('Error while deleting %s record: \n %s',
+                      protocol, response)
+    logging.info(
+        'Tried to del %s record and here is what Dreamhost responded: \n %s', protocol, response)
+
 
 def add_dns_record(protocol='ip'):
     global IPv6_Addr
@@ -100,11 +113,15 @@ def add_dns_record(protocol='ip'):
         rec_type = "A"
         Address = IP_Addr
     logging.info('Our current %s address is: %s', protocol, Address)
-    command = "dns-add_record&record=" + domain + "&type=" + rec_type + "&value=" + Address
+    command = "dns-add_record&record=" + domain + \
+        "&type=" + rec_type + "&value=" + Address
     response = speak_to_DH(command)
     if 'error' in response:
-        logging.error('Error while adding %s record: \n %s', protocol, response)
-    logging.debug('Tried to add %s record and Dreamhost responded with: \n %s', protocol, response)
+        logging.error('Error while adding %s record: \n %s',
+                      protocol, response)
+    logging.info(
+        'Tried to add %s record and Dreamhost responded with: \n %s', protocol, response)
+
 
 def update_dns_record(protocol='ip'):
     global DNS_IP
@@ -113,25 +130,29 @@ def update_dns_record(protocol='ip'):
         dns_check = DNS_IPV6
     else:
         dns_check = DNS_IP
-    logging.debug('dns_check: %s', dns_check)
+    logging.info('dns_check: %s', dns_check)
     if dns_check == "NO_RECORD":
         add_dns_record(protocol)
     else:
         del_dns_record(protocol)
         add_dns_record(protocol)
 
+
 def make_url_string(command):
     """"str->str"""
-    url = "/?key=" + API_Key + "&cmd=" +command + "&unique_id=" + rand_uuid()
+    url = "/?key=" + API_Key + "&cmd=" + command + "&unique_id=" + rand_uuid()
     return url
+
 
 def speak_to_DH(command):
     """str->str"""
-    logging.debug('Will try to speak to Dreamhost, here is what I will tell: %s', command)
+    logging.info(
+        'Will try to speak to Dreamhost, here is what I will tell: %s', command)
     substring = make_url_string(command)
     body = urlr.urlopen(API_url+substring).read().decode('UTF-8')
-    logging.debug('Here is what Dreamhost responded: %s', body)
+    logging.info('Here is what Dreamhost responded: %s', body)
     return body
+
 
 def get_host_IP_Address(protocol='ip'):
     if protocol == 'ipv6':
@@ -141,20 +162,17 @@ def get_host_IP_Address(protocol='ip'):
     IP_Addr = urlr.urlopen(u).read().decode("UTF-8")
     return IP_Addr
 
+
 def make_it_so():
     global DNS_IP
     global DNS_IPV6
     global IP_Addr
     global IPv6_Addr
-    if API_Key == '' or domain == '':
-        msg = 'API_Key and/or domain empty. Edit dreampy_dns.py and try again.'
-        syslog.syslog(syslog.LOG_ERR, msg)
-        sys.exit(msg)
     current_records = get_dns_records()
     DNS_IP = get_dns_ip(current_records)
-    logging.debug('DNS_IP: %s', DNS_IP)
+    logging.info('DNS_IP: %s', DNS_IP)
     IP_Addr = get_host_IP_Address()
-    logging.debug('IP_Addr: %s', IP_Addr)
+    logging.info('IP_Addr: %s', IP_Addr)
     if DNS_IP != IP_Addr:
         logging.info('Address different, will try to update.')
         update_dns_record()
@@ -164,10 +182,26 @@ def make_it_so():
         DNS_IPV6 = get_dns_ip(current_records, "ipv6")
         IPv6_Addr = get_host_IP_Address('ipv6')
         if DNS_IPV6 != IPv6_Addr:
-                update_dns_record('ipv6')
+            update_dns_record('ipv6')
         else:
             logging.info('IPv6 Record up-to-date.')
 
-#### Let's do it!
 
-make_it_so()
+def schedule_updates():
+    if API_Key == '' or domain == '':
+        msg = 'API_Key and/or domain empty. Make sure to pass them as environment variables.'
+        syslog.syslog(syslog.LOG_ERR, msg)
+        sys.exit(msg)
+    s = sched.scheduler(time.time, time.sleep)
+    logging.info('Runing task.')
+    # Read parameter or use default
+    frequency = int(update_freq) if update_freq.isnumeric() else default_update_freq
+    # Convert into minutes
+    frequency *= 60
+    make_it_so()
+    s.enter(frequency, 1, schedule_updates)
+    s.run()
+
+
+# Let's do it!
+schedule_updates()
