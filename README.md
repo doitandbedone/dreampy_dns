@@ -23,11 +23,11 @@ Desired update frequency in minutes. This is set to 10 minutes by default.
 
 ### Running Image
 ```bash
-docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' --name dreampy dreampy
+docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' --name dreampy-dns doitandbedone/dreampy
 ```
 If you want to override update frequency:
 ```bash
-docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' -e UPDATE_FREQUENCY='15' --name dreampy dreampy
+docker run --rm -it -e API_KEY='YOUR_API_KEY' -e DOMAIN='your.domain.com' -e UPDATE_FREQUENCY='15' --name dreampy-dns doitandbedone/dreampy
 ```
 
 ## Usage
